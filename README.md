@@ -8,6 +8,7 @@
 ## Spring Dependencies Used
 
 - Spring Web
+- H2 Database
 
 ## Testing
 
