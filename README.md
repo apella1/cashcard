@@ -8,3 +8,9 @@
 ## Spring Dependencies Used
 
 - Spring Web
+
+## Testing
+
+- JUnit
+- AssertJ
+- Jackson
