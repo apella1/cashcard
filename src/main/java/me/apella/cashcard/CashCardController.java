@@ -5,6 +5,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
+import java.util.Iterator;
 import java.util.Optional;
 
 @RestController
@@ -32,5 +33,10 @@ public class CashCardController {
         CashCard savedCashcard = cashCardRepository.save(newCashCardRequest);
         URI locationOfNewCashCard = ucb.path("/cashcards/{id}").buildAndExpand(savedCashcard.id()).toUri();
         return ResponseEntity.created(locationOfNewCashCard).build();
+    }
+
+    @GetMapping
+    private ResponseEntity<Iterable<CashCard>> findAll() {
+        return ResponseEntity.ok(cashCardRepository.findAll());
     }
 }
