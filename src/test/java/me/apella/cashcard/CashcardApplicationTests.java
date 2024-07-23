@@ -47,21 +47,23 @@ class CashcardApplicationTests {
     @Test
     @DirtiesContext
     void shouldCreateANewCashCard() {
-        CashCard newCashcard = new CashCard(null, 250.00, "jay");
+        CashCard newCashcard = new CashCard(null, 250.00, null);
         ResponseEntity<Void> createResponse = restTemplate
                 .withBasicAuth("jay", "abc1234")
                 .postForEntity("/cashcards", newCashcard, Void.class);
         assertThat(createResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
         URI locationOfNewCashCard = createResponse.getHeaders().getLocation();
-        ResponseEntity<String> getResponse = restTemplate.getForEntity(locationOfNewCashCard, String.class);
+        ResponseEntity<String> getResponse = restTemplate
+                .withBasicAuth("jay", "abc1234")
+                .getForEntity(locationOfNewCashCard, String.class);
         assertThat(getResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+
         DocumentContext documentContext = JsonPath.parse(getResponse.getBody());
         Number id = documentContext.read("$.id");
         Number amount = documentContext.read("$.amount");
-        String owner = documentContext.read("$.owner");
         assertThat(id).isNotNull();
         assertThat(amount).isEqualTo(250.00);
-        assertThat(owner).isEqualTo("jay");
     }
 
     @Test
@@ -81,7 +83,7 @@ class CashcardApplicationTests {
         assertThat(amounts).containsExactlyInAnyOrder(123.45, 1.00, 150.00, 453.43);
 
         JSONArray owners = documentContext.read("$..owner");
-        assertThat(owners).containsExactlyInAnyOrder("jay");
+        assertThat(owners).containsExactlyInAnyOrder("jay", "jay", "jay", "jay");
     }
 
     @Test
@@ -140,5 +142,21 @@ class CashcardApplicationTests {
                 .withBasicAuth("jay", "wrong-password")
                 .getForEntity("/cashcards/120", String.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void shouldRejectUsersWhoAreNotCardOwners() {
+        ResponseEntity<String> response = restTemplate
+                .withBasicAuth("hank_owns_no_cards", "abcd")
+                .getForEntity("/cashcards/120", String.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void shouldNotAllowAccessToCardsTheyDoNotOwn() {
+        ResponseEntity<String> response = restTemplate
+                .withBasicAuth("jay", "abc1234")
+                .getForEntity("/cashcards/102", String.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 }
