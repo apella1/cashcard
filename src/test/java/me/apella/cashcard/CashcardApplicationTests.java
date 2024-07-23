@@ -16,25 +16,30 @@ import java.net.URI;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-//@DirtiesContext(classMode = ClassMode.AFTER_EACH_TEST_METHOD)
 class CashcardApplicationTests {
     @Autowired
     TestRestTemplate restTemplate;
 
     @Test
     void shouldReturnACashCardWhenDataIsSaved() {
-        ResponseEntity<String> response = restTemplate.getForEntity("/cashcards/120", String.class);
+        ResponseEntity<String> response = restTemplate
+                .withBasicAuth("jay", "abc1234")
+                .getForEntity("/cashcards/120", String.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         DocumentContext documentContext = JsonPath.parse(response.getBody());
         Number id = documentContext.read("$.id");
         assertThat(id).isEqualTo(120);
         Double amount = documentContext.read("$.amount");
         assertThat(amount).isEqualTo(453.43);
+        String owner = documentContext.read("$.owner");
+        assertThat(owner).isEqualTo("jay");
     }
 
     @Test
     void shouldNotReturnCashCardWithAnUnknownId() {
-        ResponseEntity<String> response = restTemplate.getForEntity("/cashcards/130", String.class);
+        ResponseEntity<String> response = restTemplate
+                .withBasicAuth("jay", "abc1234")
+                .getForEntity("/cashcards/130", String.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(response.getBody()).isBlank();
     }
@@ -42,8 +47,10 @@ class CashcardApplicationTests {
     @Test
     @DirtiesContext
     void shouldCreateANewCashCard() {
-        CashCard newCashcard = new CashCard(null, 250.00);
-        ResponseEntity<Void> createResponse = restTemplate.postForEntity("/cashcards", newCashcard, Void.class);
+        CashCard newCashcard = new CashCard(null, 250.00, "jay");
+        ResponseEntity<Void> createResponse = restTemplate
+                .withBasicAuth("jay", "abc1234")
+                .postForEntity("/cashcards", newCashcard, Void.class);
         assertThat(createResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         URI locationOfNewCashCard = createResponse.getHeaders().getLocation();
         ResponseEntity<String> getResponse = restTemplate.getForEntity(locationOfNewCashCard, String.class);
@@ -51,13 +58,17 @@ class CashcardApplicationTests {
         DocumentContext documentContext = JsonPath.parse(getResponse.getBody());
         Number id = documentContext.read("$.id");
         Number amount = documentContext.read("$.amount");
+        String owner = documentContext.read("$.owner");
         assertThat(id).isNotNull();
         assertThat(amount).isEqualTo(250.00);
+        assertThat(owner).isEqualTo("jay");
     }
 
     @Test
     void shouldReturnAllCashcardsWhenListIsRequested() {
-        ResponseEntity<String> response = restTemplate.getForEntity("/cashcards", String.class);
+        ResponseEntity<String> response = restTemplate
+                .withBasicAuth("jay", "abc1234")
+                .getForEntity("/cashcards", String.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
         DocumentContext documentContext = JsonPath.parse(response.getBody());
@@ -68,11 +79,16 @@ class CashcardApplicationTests {
 
         JSONArray amounts = documentContext.read("$..amount");
         assertThat(amounts).containsExactlyInAnyOrder(123.45, 1.00, 150.00, 453.43);
+
+        JSONArray owners = documentContext.read("$..owner");
+        assertThat(owners).containsExactlyInAnyOrder("jay");
     }
 
     @Test
     void shouldReturnAPageOfCashCards() {
-        ResponseEntity<String> response = restTemplate.getForEntity("/cashcards?page=0&size=1", String.class);
+        ResponseEntity<String> response = restTemplate
+                .withBasicAuth("jay", "abc1234")
+                .getForEntity("/cashcards?page=0&size=1", String.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
         DocumentContext documentContext = JsonPath.parse(response.getBody());
@@ -82,10 +98,12 @@ class CashcardApplicationTests {
 
     @Test
     void shouldReturnASortedPageOfCashCards() {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                "/cashcards?page=0&size=1&sort=amount,desc",
-                String.class
-        );
+        ResponseEntity<String> response = restTemplate
+                .withBasicAuth("jay", "abc1234")
+                .getForEntity(
+                        "/cashcards?page=0&size=1&sort=amount,desc",
+                        String.class
+                );
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
         DocumentContext documentContext = JsonPath.parse(response.getBody());
@@ -98,7 +116,9 @@ class CashcardApplicationTests {
 
     @Test
     void shouldReturnASortedPageOfCashCardsWithNoParametersProvidedAndUseDefaultValues() {
-        ResponseEntity<String> response = restTemplate.getForEntity("/cashcards", String.class);
+        ResponseEntity<String> response = restTemplate
+                .withBasicAuth("jay", "abc1234")
+                .getForEntity("/cashcards", String.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
         DocumentContext documentContext = JsonPath.parse(response.getBody());
@@ -107,5 +127,18 @@ class CashcardApplicationTests {
 
         JSONArray amounts = documentContext.read("$..amount");
         assertThat(amounts).containsExactly(1.00, 123.45, 150.00, 453.43);
+    }
+
+    @Test
+    void shouldNotReturnACashCardWhenUsingBadCredentials() {
+        ResponseEntity<String> response = restTemplate
+                .withBasicAuth("BAD_USER", "1234")
+                .getForEntity("/cashcards/120", String.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+
+        response = restTemplate
+                .withBasicAuth("jay", "wrong-password")
+                .getForEntity("/cashcards/120", String.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 }
