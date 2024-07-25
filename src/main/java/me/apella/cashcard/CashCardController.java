@@ -24,15 +24,11 @@ public class CashCardController {
 
     @GetMapping("/{requestId}")
     private ResponseEntity<CashCard> findById(@PathVariable Long requestId, Principal principal) {
-        Optional<CashCard> cashCardOptional = Optional.ofNullable(
-                cashCardRepository.findByIdAndOwner(requestId, principal.getName())
-        );
-
-        if (cashCardOptional.isPresent()) {
-            return ResponseEntity.ok(cashCardOptional.get());
-        } else {
-            return ResponseEntity.notFound().build();
+        CashCard cashCard = cashCardRepository.findByIdAndOwner(requestId, principal.getName());
+        if (cashCard != null) {
+            return ResponseEntity.ok(cashCard);
         }
+        return ResponseEntity.notFound().build();
     }
 
     @PostMapping
